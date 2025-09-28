@@ -11,7 +11,7 @@ load_dotenv()  # Lee variables desde .env si existe
 def get_db_config():
     cfg = {
         "host": os.getenv("MYSQL_HOST", "127.0.0.1"),
-        # Fuerza 6000 como default en lugar de 3306
+        # Fuerza 6000 como default en lugar de 3306 (ajusta en producción)
         "port": int(os.getenv("MYSQL_PORT", "6000")),
         "user": os.getenv("MYSQL_USER", "root"),
         "password": os.getenv("MYSQL_PASSWORD", "501914"),
@@ -19,7 +19,6 @@ def get_db_config():
     }
     print("DBG MySQL config =>", cfg)
     return cfg
-
 
 def get_conn():
     try:
@@ -42,7 +41,10 @@ def create_app():
     def listar_productos():
         conn = get_conn()
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT id_producto, nombre, precio, stock, creado_en FROM productos ORDER BY id_producto DESC")
+        cur.execute(
+            "SELECT id_producto, nombre, precio, stock, creado_en "
+            "FROM productos ORDER BY id_producto DESC"
+        )
         productos = cur.fetchall()
         cur.close()
         conn.close()
@@ -75,7 +77,11 @@ def create_app():
             if errores:
                 for e in errores:
                     flash(e, "danger")
-                return render_template("form.html", modo="crear", form={"nombre": nombre, "precio": precio, "stock": stock})
+                return render_template(
+                    "form.html",
+                    modo="crear",
+                    form={"nombre": nombre, "precio": precio, "stock": stock},
+                )
 
             conn = get_conn()
             cur = conn.cursor()
@@ -89,7 +95,9 @@ def create_app():
             flash("Producto creado correctamente.", "success")
             return redirect(url_for("listar_productos"))
 
-        return render_template("form.html", modo="crear", form={"nombre": "", "precio": "", "stock": ""})
+        return render_template(
+            "form.html", modo="crear", form={"nombre": "", "precio": "", "stock": ""}
+        )
 
     @app.route("/editar/<int:id_producto>", methods=["GET", "POST"])
     def editar_producto(id_producto: int):
@@ -125,7 +133,12 @@ def create_app():
                 producto = cur.fetchone()
                 cur.close()
                 conn.close()
-                return render_template("form.html", modo="editar", form={"nombre": nombre, "precio": precio, "stock": stock}, producto=producto)
+                return render_template(
+                    "form.html",
+                    modo="editar",
+                    form={"nombre": nombre, "precio": precio, "stock": stock},
+                    producto=producto,
+                )
 
             cur2 = conn.cursor()
             cur2.execute(
@@ -181,6 +194,13 @@ def create_app():
 
     return app
 
+# ===== Exporta 'app' global para Gunicorn (Render) =====
+app = create_app()
+
 if __name__ == "__main__":
-    app = create_app()
-    app.run(debug=bool(int(os.getenv("FLASK_DEBUG", "1"))))
+    # Arranque local
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 5000)),
+        debug=bool(int(os.getenv("FLASK_DEBUG", "1"))),
+    )
